@@ -9,3 +9,8 @@ pymemcache
 cloudpickle
 tqdm
 matplotlib
+lightgbm
+seaborn
+sdv
+ctgan
+copulas

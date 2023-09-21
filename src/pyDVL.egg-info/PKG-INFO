@@ -18,11 +18,27 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Description-Content-Type: text/markdown
-Provides-Extra: cupy
-Provides-Extra: influence
-Provides-Extra: ray
 License-File: LICENSE
 License-File: COPYING.LESSER
+Requires-Dist: pyDeprecate>=0.3.2
+Requires-Dist: numpy>=1.20
+Requires-Dist: pandas>=1.3
+Requires-Dist: scikit-learn
+Requires-Dist: scipy>=1.7.0
+Requires-Dist: cvxpy>=1.3.0
+Requires-Dist: joblib
+Requires-Dist: pymemcache
+Requires-Dist: cloudpickle
+Requires-Dist: tqdm
+Requires-Dist: matplotlib
+Requires-Dist: lightgbm
+Requires-Dist: seaborn
+Provides-Extra: cupy
+Requires-Dist: cupy-cuda11x>=12.1.0; extra == "cupy"
+Provides-Extra: influence
+Requires-Dist: torch>=2.0.0; extra == "influence"
+Provides-Extra: ray
+Requires-Dist: ray>=0.8; extra == "ray"
 
 <p align="center" style="text-align:center;">
     <img alt="pyDVL Logo" src="https://raw.githubusercontent.com/aai-institute/pyDVL/develop/logo.svg" width="200"/>

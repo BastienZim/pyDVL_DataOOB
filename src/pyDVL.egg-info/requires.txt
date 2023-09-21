@@ -9,6 +9,8 @@ pymemcache
 cloudpickle
 tqdm
 matplotlib
+lightgbm
+seaborn
 
 [cupy]
 cupy-cuda11x>=12.1.0

@@ -16,7 +16,11 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.base import is_classifier, is_regressor
 from sklearn.ensemble import BaggingClassifier, BaggingRegressor
-
+from sklearn.svm import OneClassSVM
+from sklearn.ensemble import IsolationForest
+from tqdm import tqdm
+from synthcity.plugins.core.dataloader import GenericDataLoader
+import random
 from pydvl.utils import Utility, maybe_progress
 from pydvl.value.result import ValuationResult
 
@@ -138,3 +142,62 @@ def neg_l2_distance(preds: NDArray[T], y: NDArray[T]) -> NDArray[T]:
             dtype=np.float64,
         )
     )
+
+
+def compute_data_oob_generative(
+    u: Utility,
+    n_est: int = 10,
+    max_samples: float = 0.8,
+    progress=False,
+    eval_alg="OneClassSVM",
+    ad_dict = None,
+) -> ValuationResult:
+    r"""
+    """
+
+    result: ValuationResult[np.int_, np.float_] = ValuationResult.empty(
+        algorithm="data_oob", indices=u.data.indices, data_names=u.data.data_names
+    )
+
+    if (progress):
+        iterator = tqdm(range(n_est))
+    else:
+        iterator = range(n_est)
+    for _ in iterator:
+        bag_idx = sample_bag(u.data.indices, max_samples)
+        if "synthcity" in str(type(u.model)):
+            est = u.model.fit(GenericDataLoader(u.data.x_train[bag_idx]))
+        else:
+            est = u.model().fit(u.data.x_train[bag_idx])
+        oob_idx = np.setxor1d(u.data.indices, bag_idx)
+        if "synthcity" in str(type(u.model)):
+            generated_data = est.generate(count=30).dataframe()
+        else:
+            generated_data = est.sample(30)[0]
+
+        array_loss = eval_ad(generated_data, u, oob_idx, eval_alg, ad_dict)
+
+        result += ValuationResult(
+            algorithm="data_oob",
+            indices=oob_idx,
+            values=array_loss,
+            counts=np.ones_like(array_loss, dtype=u.data.indices.dtype),
+        )
+
+    return result
+
+def eval_ad(generated_data, u, oob_idx, eval_alg, ad_dict):
+    if eval_alg == "OneClassSVM":
+        ad = OneClassSVM().fit(generated_data)
+    elif eval_alg == "IsolationForest":
+        ad = IsolationForest().fit(generated_data)
+    elif ad_dict is not None:
+        ad = ad_dict['model'](**ad_dict["kwargs"]).fit(generated_data)
+    
+    array_loss = np.array(
+        [ad.predict(np.array([u.data.x_train[p]]))[0] for p in oob_idx])
+    return(array_loss)
+
+def sample_bag(indexes, max_samples):
+    n_samp = int(max_samples*len(indexes))
+    return (random.choices(indexes, k=n_samp))

@@ -14,3 +14,4 @@ seaborn
 sdv
 ctgan
 copulas
+pyod

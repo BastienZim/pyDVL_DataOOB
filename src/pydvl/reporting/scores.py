@@ -84,3 +84,39 @@ def compute_removal_class_imbal_evol(
         classes_bal = {c:sum([x==c for x in labels]) for c in classes}
         all_classes_bal.append(classes_bal)
     return pd.DataFrame(all_classes_bal, index = percentages)
+
+def compute_gen_scores(
+    u: Utility,
+    values: ValuationResult,
+    percentages: Union[NDArray[np.float_], Iterable[float]],
+    *,
+    remove_best: bool = False,
+    metric,
+    progress: bool = False,
+) -> Dict[float, float]:
+    
+    # Sanity checks
+    if np.any([x >= 1.0 or x < 0.0 for x in percentages]):
+        raise ValueError("All percentages should be in the range [0.0, 1.0)")
+
+    if len(values) != len(u.data.indices):
+        raise ValueError(
+            f"The number of values, {len(values) }, should be equal to the number of data indices, {len(u.data.indices)}"
+        )
+
+    scores = {}
+    classes = np.unique(u.data.y_train)
+    # We sort in descending order if we want to remove the best values
+    values.sort(reverse=remove_best)
+    all_gen_scores = []
+    for pct in maybe_progress(percentages, display=progress, desc="Removal Scores"):
+        n_removal = int(pct * len(u.data))
+        indices = values.indices[n_removal:]
+        train_data = u.data.x_train[indices]
+        synth_data = m().fit(train_data).sample(30)[0]
+        score = metric.compute(
+                            real_data=pd.DataFrame(utility.data.x_test, columns = data.feature_names),
+                            synthetic_data=pd.DataFrame(synth_data, columns = data.feature_names),
+                        )
+        all_gen_scores.append(score)
+    return pd.DataFrame(all_gen_scores, index = percentages, columns=[metric.__name__])

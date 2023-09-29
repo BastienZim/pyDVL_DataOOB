@@ -7,7 +7,11 @@ import scipy as sp
 from matplotlib.axes import Axes
 from numpy.typing import NDArray
 from scipy.stats import norm
-from pydvl.reporting.scores import compute_removal_score, compute_removal_class_imbal_evol
+from pydvl.reporting.scores import (
+    compute_removal_score,
+    compute_removal_class_imbal_evol,
+)
+from pydvl.value.result import ValuationResult
 import seaborn as sns
 
 
@@ -72,7 +76,10 @@ def plot_best_worst(best_scores_df, worst_scores_df, palette_name="tab10", color
     ]
     method_header = "".join(best_scores_df.method_name.iloc[0].split("_")[:1])
     all_params = set(
-        ["_".join(x.split("_")[1:]) for x in best_scores_df.loc[:, "method_name"].values]
+        [
+            "_".join(x.split("_")[1:])
+            for x in best_scores_df.loc[:, "method_name"].values
+        ]
     )
     if all([x.replace(".", "").isnumeric() for x in all_params]):
         all_params = sorted(all_params, key=lambda x: float(x))
@@ -109,7 +116,15 @@ def plot_best_worst(best_scores_df, worst_scores_df, palette_name="tab10", color
     plt.show()
 
 
-def plot_best_worst_class_imbalance(best_scores_df, worst_scores_df, all_values, ut, palette_name="tab10", colors=None):
+def plot_best_worst_class_imbalance(
+    best_scores_df,
+    worst_scores_df,
+    all_values,
+    ut,
+    palette_name="tab10",
+    colors=None,
+    random_run=False,
+):
     _, ax = plt.subplots(nrows=2, ncols=2, figsize=[20, 10])
     if colors is None:
         colors = sns.color_palette(
@@ -121,7 +136,10 @@ def plot_best_worst_class_imbalance(best_scores_df, worst_scores_df, all_values,
     ]
     method_header = "".join(best_scores_df.method_name.iloc[0].split("_")[:1])
     all_params = set(
-        ["_".join(x.split("_")[1:]) for x in best_scores_df.loc[:, "method_name"].values]
+        [
+            "_".join(x.split("_")[1:])
+            for x in best_scores_df.loc[:, "method_name"].values
+        ]
     )
     if all([x.replace(".", "").isnumeric() for x in all_params]):
         all_params = sorted(all_params, key=lambda x: float(x))
@@ -138,7 +156,7 @@ def plot_best_worst_class_imbalance(best_scores_df, worst_scores_df, all_values,
             # ylabel=ut.scorer._name.capitalize(),
             label=method_name.replace("_", ""),
             title="Accuracy as a function of percentage of removed best data points\nThe Lower the Better",
-            ax=ax[0,1],
+            ax=ax[0, 1],
         )
         shaded_mean_std(
             worst_scores_df[worst_scores_df["method_name"] == method_name].drop(
@@ -151,42 +169,110 @@ def plot_best_worst_class_imbalance(best_scores_df, worst_scores_df, all_values,
             # ylabel=ut.scorer._name.capitalize(),
             label=method_name.replace("_", ""),
             title="Accuracy as a function of percentage of removed worst data points\nThe Higher the Better",
-            ax=ax[0,0],
+            ax=ax[0, 0],
         )
-        
+
         for k in range(2):
             is_best = ["WORST", "BEST"][k]
-            df_imbal_vals = pd.DataFrame(index = removal_percentages)
+            df_imbal_vals = pd.DataFrame(index=removal_percentages)
             for j, vals in enumerate(all_values[param]):
                 imbal_res = compute_removal_class_imbal_evol(
-                            u=ut,
-                            values=vals,
-                            percentages=removal_percentages,
-                            remove_best=[False,True][k],
-                        )
-                df_imbal_vals.loc[:,j]= imbal_res.min(axis=1)/imbal_res.max(axis=1)
-            
+                    u=ut,
+                    values=vals,
+                    percentages=removal_percentages,
+                    remove_best=[False, True][k],
+                )
+                df_imbal_vals.loc[:, j] = imbal_res.min(axis=1) / imbal_res.max(axis=1)
+
             df_imbal_vals = df_imbal_vals.dropna().T
             shaded_mean_std(
-                        df_imbal_vals,
-                        abscissa=df_imbal_vals.columns,
-                        mean_color=colors[i % len(colors)],
-                        shade_color=colors[i % len(colors)],
-                        xlabel="Percentage removed",
-                        label=method_name.replace("_", ""),
-                        title=f"Remove {is_best}\nEvolution of class imbalance (min class count/max class count)",
-                        ax=ax[1,k],
-                    )
+                df_imbal_vals,
+                abscissa=df_imbal_vals.columns,
+                mean_color=colors[i % len(colors)],
+                shade_color=colors[i % len(colors)],
+                xlabel="Percentage removed",
+                label=method_name.replace("_", ""),
+                title=f"Remove {is_best}\nEvolution of class imbalance (min class count/max class count)",
+                ax=ax[1, k],
+            )
+    if(random_run):
+        n_iter=best_scores_df.method_name.value_counts()[0]
+        random_best = []
+        random_worst = []
+        random_vals = []
+        for i in range(n_iter):
+            vals = ValuationResult.from_random(size=len(ut.data))
+            random_vals.append(vals)
+            best_score  = compute_removal_score(
+                                                    u=ut,
+                                                    values=vals,
+                                                    percentages=removal_percentages,
+                                                    remove_best=True,
+                                                )
+            random_best.append(best_score)
+            worst_score  = compute_removal_score(
+                                                    u=ut,
+                                                    values=vals,
+                                                    percentages=removal_percentages,
+                                                    remove_best=False,
+                                                )
+            random_worst.append(worst_score)
 
-    ax[0,0].legend()
-    ax[0,1].legend()
-    ax[1,0].legend()
-    ax[1,1].legend()
-    ax[1,0].set_ylim(bottom=0,top=1)
-    ax[1,1].set_ylim(bottom=0,top=1)
+        shaded_mean_std(
+            pd.DataFrame(random_best),
+            abscissa=removal_percentages,
+            mean_color="black",
+            shade_color="black",
+            xlabel="Percentage removed",
+            label="Random",
+            title="Accuracy as a function of percentage of removed best data points\nThe Lower the Better",
+            ax=ax[0, 1],
+        )
+        shaded_mean_std(
+            pd.DataFrame(random_worst),
+            abscissa=removal_percentages,
+            mean_color="black",
+            shade_color="black",
+            xlabel="Percentage removed",
+            label="Random",
+            title="Accuracy as a function of percentage of removed best data points\nThe Lower the Better",
+            ax=ax[0, 0],
+        )
+        for k in range(2):
+            is_best = ["WORST", "BEST"][k]
+            df_imbal_vals = pd.DataFrame(index=removal_percentages)
+            for j,vals in enumerate(random_vals):
+                imbal_res = compute_removal_class_imbal_evol(
+                    u=ut,
+                    values=vals,
+                    percentages=removal_percentages,
+                    remove_best=[False, True][k],
+                )
+                df_imbal_vals.loc[:, j] = imbal_res.min(axis=1) / imbal_res.max(axis=1)
+
+            df_imbal_vals = df_imbal_vals.dropna().T
+            shaded_mean_std(
+                df_imbal_vals,
+                abscissa=df_imbal_vals.columns,
+                mean_color="black",
+                shade_color="black",
+                xlabel="Percentage removed",
+                label="Random",
+                title=f"Remove {is_best}\nEvolution of class imbalance (min class count/max class count)",
+                ax=ax[1, k],
+            )
+        
+
+
+
+    ax[0, 0].legend()
+    ax[0, 1].legend()
+    ax[1, 0].legend()
+    ax[1, 1].legend()
+    ax[1, 0].set_ylim(bottom=0, top=1)
+    ax[1, 1].set_ylim(bottom=0, top=1)
     plt.subplots_adjust(hspace=0.3)
     plt.show()
-
 
 
 def plot_methods_linreg(best_df, worst_df):

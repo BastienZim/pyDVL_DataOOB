@@ -235,7 +235,7 @@ def plot_best_worst_class_imbalance(
             shade_color="black",
             xlabel="Percentage removed",
             label="Random",
-            title="Accuracy as a function of percentage of removed best data points\nThe Lower the Better",
+            title="Accuracy as a function of percentage of removed worst data points\nThe Higher the Better",
             ax=ax[0, 0],
         )
         for k in range(2):
